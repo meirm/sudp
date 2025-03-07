@@ -25,7 +25,7 @@ import logging
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.common.socket import UDPSocket
-from src.common.logging import setup_logging, log_performance, log_error
+from src.common.logging import setup_logging, log_performance, log_error, PerformanceMetrics
 
 # Set up logging
 logger = setup_logging(log_level=logging.DEBUG)  # Set to DEBUG level
@@ -38,12 +38,23 @@ async def echo_server():
         logger.info("Use 'nc -u 127.0.0.1 5005' to connect")
         logger.info("Note: Using IP address (127.0.0.1) instead of hostname (localhost) for consistency")
         
+        metrics = PerformanceMetrics()
+        message_count = 0
+        total_bytes = 0
+        
         while True:
             try:
                 # Receive data
                 logger.debug("Waiting for data...")
                 data, addr = await sock.receive()
                 message = data.decode().strip()
+                message_count += 1
+                total_bytes += len(data)
+                
+                metrics.record('messages_processed', message_count)
+                metrics.record('total_bytes_received', total_bytes)
+                metrics.record('last_message_size', len(data))
+                
                 logger.info(f"Received from {addr}: {message}")
                 logger.debug(f"Message size: {len(data)} bytes")
 
@@ -53,11 +64,19 @@ async def echo_server():
                 await sock.send(response, addr)
                 logger.debug(f"Sent response to {addr}")
                 
+                total_bytes += len(response)
+                metrics.record('total_bytes_sent', total_bytes)
+                
             except KeyboardInterrupt:
                 logger.info("Shutting down...")
+                metrics.record('uptime', metrics.measure_time())
                 break
             except Exception as e:
-                log_error(logger, e, {'addr': addr if 'addr' in locals() else None})
+                log_error(logger, e, {
+                    'addr': addr if 'addr' in locals() else None,
+                    'messages_processed': message_count,
+                    'total_bytes': total_bytes
+                })
 
 if __name__ == "__main__":
     try:

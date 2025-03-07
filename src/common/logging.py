@@ -31,14 +31,18 @@ class PerformanceMetrics:
     def __init__(self) -> None:
         self.start_time: float = time.time()
         self.metrics: Dict[str, float] = {}
+        self.logger = logging.getLogger('sudp.performance')
     
     def record(self, metric_name: str, value: float) -> None:
         """Record a performance metric."""
         self.metrics[metric_name] = value
+        self.logger.debug(f"Metric {metric_name}: {value:.3f}")
     
     def measure_time(self) -> float:
         """Measure elapsed time since initialization."""
-        return time.time() - self.start_time
+        duration = time.time() - self.start_time
+        self.record('duration', duration)
+        return duration
 
 def setup_logging(
     log_dir: Union[str, Path] = DEFAULT_LOG_DIR,
@@ -63,6 +67,7 @@ def setup_logging(
     # Main application logger
     logger = logging.getLogger('sudp')
     logger.setLevel(log_level)
+    logger.propagate = False  # Prevent double logging
     
     # Clear any existing handlers
     logger.handlers.clear()
@@ -88,6 +93,7 @@ def setup_logging(
     # Performance logger setup
     perf_logger = logging.getLogger('sudp.performance')
     perf_logger.setLevel(logging.DEBUG)
+    perf_logger.propagate = False  # Prevent double logging
     perf_logger.handlers.clear()
     
     # Performance console handler
@@ -123,15 +129,16 @@ def log_performance(operation: str) -> Callable:
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             metrics = PerformanceMetrics()
             try:
+                metrics.record('operation_start', time.time())
                 result = await func(*args, **kwargs)
                 duration = metrics.measure_time()
-                logging.getLogger('sudp.performance').info(
+                metrics.logger.info(
                     f"{operation} completed in {duration:.3f}s"
                 )
                 return result
             except Exception as e:
                 duration = metrics.measure_time()
-                logging.getLogger('sudp.performance').error(
+                metrics.logger.error(
                     f"{operation} failed after {duration:.3f}s: {str(e)}"
                 )
                 raise
@@ -140,15 +147,16 @@ def log_performance(operation: str) -> Callable:
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             metrics = PerformanceMetrics()
             try:
+                metrics.record('operation_start', time.time())
                 result = func(*args, **kwargs)
                 duration = metrics.measure_time()
-                logging.getLogger('sudp.performance').info(
+                metrics.logger.info(
                     f"{operation} completed in {duration:.3f}s"
                 )
                 return result
             except Exception as e:
                 duration = metrics.measure_time()
-                logging.getLogger('sudp.performance').error(
+                metrics.logger.error(
                     f"{operation} failed after {duration:.3f}s: {str(e)}"
                 )
                 raise
