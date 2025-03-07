@@ -1,0 +1,19 @@
+---
+description: Guidelines to ensure that the development context is systematically captured, summarized, and transferred across sessions in an agentic IDE. These guidelines guarantee seamless continuity by preserving critical decisions, outstanding tasks, and project background, enabling a fresh context to be initialized with essential insights for efficient, informed, and coherent development.
+globs: 
+alwaysApply: false
+---
+# Agentic IDE Context Summarization and Transfer Guidelines
+- Continuously track and record key context, instructions, and development decisions as the session evolves.
+- Periodically, or upon request, generate a concise summary of the current context window. This summary should capture:
+  - Key topics discussed
+  - Recent modifications and decisions
+  - Outstanding tasks and unresolved issues
+- Structure the summary to include only the essential context required for continuity, avoiding extraneous details.
+- When initiating a new chat with a fresh context window, provide:
+  - The generated summary of previous context
+  - A clear set of instructions outlining the agent’s role, current development state, and goals
+  - Brief background information on the project, including design decisions and known challenges
+- Ensure that both the summary and the new instructions are updated, accurate, and actionable.
+- On context reset or transition, verify that the summary highlights the most critical information to ensure seamless continuity in development.
+- Use this process to maintain a consistent and coherent development workflow across multiple sessions.

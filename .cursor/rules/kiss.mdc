@@ -1,0 +1,14 @@
+---
+description: Guidelines to foster a simple, clear, and maintainable approach to software development by emphasizing the "Keep It Simple, Stupid" (KISS) principle.
+globs: 
+alwaysApply: false
+---
+# KISS Development Rules
+- Always aim for the simplest solution that meets the project requirements.
+- Avoid over-complicating designs or implementations—choose straightforward approaches.
+- Break problems into manageable, clearly defined components.
+- Regularly refactor code to eliminate unnecessary complexity and redundancy.
+- Use clear, descriptive naming conventions to enhance readability.
+- Document only what is essential to understand the code's purpose and functionality.
+- Implement features incrementally and only when needed, avoiding premature optimization.
+- Continuously evaluate design choices by asking, "Is there a simpler way to achieve this?"
