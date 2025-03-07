@@ -9,8 +9,8 @@
   - Metadata handling (source/destination addresses, ports)
   - Basic packet statistics (size, timestamp)
 
-### 2. UDP Socket Management
-- [ ] Create UDPSocket class in `src/common/socket.py`
+### 2. UDP Socket Management ✓
+- [x] Create UDPSocket class in `src/common/socket.py`
   - Non-blocking socket operations
   - Buffer management
   - Error handling
@@ -60,7 +60,7 @@
 
 ## Implementation Order
 1. ✓ Core UDP Packet class and tests
-2. Socket management implementation
+2. ✓ Socket management implementation
 3. Basic logging infrastructure
 4. Client and server implementations
 5. Configuration management
