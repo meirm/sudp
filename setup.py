@@ -1,37 +1,52 @@
+#!/usr/bin/env python3
+"""SUDP package setup."""
+
 from setuptools import setup, find_packages
+from pathlib import Path
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
+# Read requirements
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
 
-with open("requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+# Read long description
+readme = Path('README.md')
+if readme.exists():
+    with open(readme) as f:
+        long_description = f.read()
+else:
+    long_description = ""
 
 setup(
     name="sudp",
-    version="0.1.0",
-    author="Meir Michanie",
-    author_email="meirm@riunx.com",
-    description="A secure UDP over WebSocket tunneling solution",
+    version="0.4.0",
+    description="Secure UDP over WebSocket",
     long_description=long_description,
     long_description_content_type="text/markdown",
+    author="Meir Michanie",
+    author_email="meirm@riunx.com",
     url="https://github.com/meirm/sudp",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+    scripts=[
+        'scripts/sudpc',
+        'scripts/sudpd'
+    ],
+    install_requires=requirements,
+    python_requires=">=3.8",
     classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
-        "Intended Audience :: Developers",
+        "Development Status :: 4 - Beta",
+        "Environment :: No Input/Output Interaction",
+        "Intended Audience :: System Administrators",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Operating System :: OS Independent",
+        "Topic :: Internet :: Proxy Servers",
+        "Topic :: System :: Networking",
     ],
-    python_requires=">=3.8",
-    install_requires=requirements,
-    entry_points={
-        "console_scripts": [
-            "sudp-client=client.main:main",
-            "sudp-server=server.main:main",
-        ],
-    },
+    data_files=[
+        ('etc/sudp', ['examples/server.yaml', 'examples/client.yaml']),
+        ('lib/systemd/system', ['systemd/sudpc.service', 'systemd/sudpd.service']),
+    ]
 ) 

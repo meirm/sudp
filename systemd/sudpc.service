@@ -1,0 +1,31 @@
+[Unit]
+Description=SUDP Client Daemon
+After=network.target
+Documentation=https://github.com/meirm/sudp
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/sudpc start --config-file /etc/sudp/client.yaml
+ExecStop=/usr/local/bin/sudpc stop
+ExecReload=/usr/local/bin/sudpc restart
+PIDFile=/var/run/sudp/sudpc.pid
+
+# Security
+User=sudp
+Group=sudp
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+
+# Limits
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# Restart settings
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target 
