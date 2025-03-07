@@ -19,8 +19,8 @@ class UDPPacket:
         payload (bytes): The actual data being transmitted
         source_addr (str): Source IP address
         source_port (int): Source port number
-        dest_addr (str): Destination IP address
-        dest_port (int): Destination port number
+        dest_addr (Optional[str]): Destination IP address
+        dest_port (Optional[int]): Destination port number
         timestamp (float): Unix timestamp when the packet was created
         size (int): Size of the payload in bytes
     """
@@ -28,8 +28,8 @@ class UDPPacket:
     payload: bytes
     source_addr: str
     source_port: int
-    dest_addr: str
-    dest_port: int
+    dest_addr: Optional[str] = None
+    dest_port: Optional[int] = None
     timestamp: float = dataclasses.field(default_factory=time.time)
     size: int = dataclasses.field(init=False)
 
@@ -47,12 +47,16 @@ class UDPPacket:
         if not isinstance(self.payload, bytes):
             raise ValueError("Payload must be bytes")
         
-        if not (0 <= self.source_port <= 65535 and 0 <= self.dest_port <= 65535):
-            raise ValueError("Port numbers must be between 0 and 65535")
+        if not 0 <= self.source_port <= 65535:
+            raise ValueError("Source port must be between 0 and 65535")
+            
+        if self.dest_port is not None and not 0 <= self.dest_port <= 65535:
+            raise ValueError("Destination port must be between 0 and 65535")
 
         try:
             socket.inet_aton(self.source_addr)
-            socket.inet_aton(self.dest_addr)
+            if self.dest_addr is not None:
+                socket.inet_aton(self.dest_addr)
         except socket.error:
             raise ValueError("Invalid IP address format")
 
@@ -109,8 +113,8 @@ class UDPPacket:
                 payload=payload,
                 source_addr=data["source_addr"],
                 source_port=data["source_port"],
-                dest_addr=data["dest_addr"],
-                dest_port=data["dest_port"],
+                dest_addr=data.get("dest_addr"),
+                dest_port=data.get("dest_port"),
                 timestamp=data.get("timestamp", time.time())
             )
         except (KeyError, ValueError) as e:
@@ -158,13 +162,13 @@ class UDPPacket:
     def create(cls, 
                payload: Union[bytes, str], 
                source: Tuple[str, int], 
-               destination: Tuple[str, int]) -> 'UDPPacket':
+               destination: Optional[Tuple[str, int]] = None) -> 'UDPPacket':
         """Create a new UDP packet with the given payload and addressing information.
 
         Args:
             payload (Union[bytes, str]): The packet payload
             source (Tuple[str, int]): Source address and port tuple
-            destination (Tuple[str, int]): Destination address and port tuple
+            destination (Optional[Tuple[str, int]]): Destination address and port tuple
 
         Returns:
             UDPPacket: New packet instance
@@ -179,6 +183,6 @@ class UDPPacket:
             payload=payload,
             source_addr=source[0],
             source_port=source[1],
-            dest_addr=destination[0],
-            dest_port=destination[1]
+            dest_addr=destination[0] if destination else None,
+            dest_port=destination[1] if destination else None
         ) 
