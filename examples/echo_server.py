@@ -8,7 +8,10 @@ Usage:
     python echo_server.py
 
 Then in another terminal:
-    nc -u localhost 5000
+    nc -u 127.0.0.1 5005
+
+Note: Use IP addresses (127.0.0.1) instead of hostnames (localhost) for consistency
+behavior across different systems, especially on macOS.
 
 Type messages in the netcat terminal and they will be echoed back.
 """
@@ -31,9 +34,10 @@ logging.basicConfig(
 
 async def echo_server():
     """Run a UDP echo server."""
-    async with UDPSocket("127.0.0.1", 5000) as sock:
-        print("Echo server running on 127.0.0.1:5000")
-        print("Use 'nc -u localhost 5000' to connect")
+    async with UDPSocket("127.0.0.1", 5005) as sock:
+        print("Echo server running on 127.0.0.1:5005")
+        print("Use 'nc -u 127.0.0.1 5005' to connect")
+        print("Note: Using IP address (127.0.0.1) instead of hostname (localhost) for consistency")
         
         while True:
             try:

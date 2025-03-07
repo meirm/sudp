@@ -14,14 +14,14 @@ sequenceDiagram
     participant NG as Nginx Proxy
     participant US as User Server (UDP Server)
     
-    UA->>SC: UDP Packets (localhost:source_port)
+    UA->>SC: UDP Packets (127.0.0.1:source_port)
     SC->>NG: WebSocket Connection (wss://server:443)
     NG->>SS: Authenticated WS Connection
     SS->>US: UDP Packets (target:dest_port)
 ```
 
 ### 1. Client Side
-1. User's application sends UDP packets to a local port (e.g., 127.0.0.1:5000)
+1. User's application sends UDP packets to a local port (e.g., 127.0.0.1:5005)
 2. SUDP Client listens on this port for incoming UDP packets
 3. When a packet is received, the client:
    - Encapsulates the UDP packet with metadata
@@ -43,16 +43,16 @@ sequenceDiagram
 ### 1. Basic UDP Communication Test
 ```bash
 # Terminal 1 - Simulate destination UDP server
-nc -ul 5001  # Listen for UDP on port 5001
+nc -ul 127.0.0.1 5006  # Listen for UDP on port 5006
 
 # Terminal 2 - Start SUDP server
-sudp-server --listen 8080 --forward localhost:5001
+sudp-server --listen 8080 --forward 127.0.0.1:5006
 
 # Terminal 3 - Start SUDP client
-sudp-client --listen 5000 --connect ws://localhost:8080
+sudp-client --listen 5005 --connect ws://127.0.0.1:8080
 
 # Terminal 4 - Simulate UDP client application
-nc -u localhost 5000  # Send UDP packets to SUDP client
+nc -u 127.0.0.1 5005  # Send UDP packets to SUDP client
 ```
 
 ### 2. Production Setup
