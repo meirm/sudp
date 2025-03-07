@@ -1,0 +1,18 @@
+# SUDP Client Configuration
+
+# UDP server settings
+udp_host: "127.0.0.1"
+udp_port: 1234
+
+# Remote server settings
+server_host: "127.0.0.1"
+server_port: 1122
+
+# Optional settings
+buffer_size: 65507
+
+# Logging settings
+log_dir: "~/.sudp/logs"
+log_level: "INFO"
+enable_file_logging: true
+enable_console_logging: true 

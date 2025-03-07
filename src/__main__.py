@@ -11,32 +11,43 @@ from pathlib import Path
 
 from .client.client import SUDPClient
 from .common.logging import setup_logging
+from .common.config import create_client_config
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="SUDP Client")
     
+    # Config file
+    parser.add_argument("--config-file", type=str,
+                      help="Path to YAML configuration file")
+    
     # UDP settings
-    parser.add_argument("--udp-host", default="127.0.0.1",
+    parser.add_argument("--udp-host", default=None,
                       help="Local UDP server address (default: 127.0.0.1)")
-    parser.add_argument("--udp-port", type=int, default=1234,
+    parser.add_argument("--udp-port", type=int, default=None,
                       help="Local UDP server port (default: 1234)")
     
     # TCP settings
-    parser.add_argument("--server-host", default="127.0.0.1",
+    parser.add_argument("--server-host", default=None,
                       help="Remote server address (default: 127.0.0.1)")
-    parser.add_argument("--server-port", type=int, default=11223,
+    parser.add_argument("--server-port", type=int, default=None,
                       help="Remote server port (default: 11223)")
     
     # Optional settings
-    parser.add_argument("--buffer-size", type=int, default=65507,
+    parser.add_argument("--buffer-size", type=int, default=None,
                       help="Maximum packet size (default: 65507)")
-    parser.add_argument("--log", action="store_true",
-                      help="Enable logging to file")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                      help="Enable debug logging")
-    parser.add_argument("--log-dir", type=str,
+    
+    # Logging settings
+    parser.add_argument("--log-dir", type=str, default=None,
                       help="Log directory (default: ~/.sudp/logs)")
+    parser.add_argument("--log-level", type=str, default=None,
+                      choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+                      help="Logging level (default: INFO)")
+    parser.add_argument("--enable-file-logging", action="store_true", default=None,
+                      help="Enable logging to file")
+    parser.add_argument("--disable-console-logging", action="store_false",
+                      dest="enable_console_logging", default=None,
+                      help="Disable console logging")
     
     return parser.parse_args()
 
@@ -44,27 +55,29 @@ async def main() -> None:
     """Run the SUDP client."""
     args = parse_args()
     
+    # Create configuration
+    config = create_client_config(args.config_file, args)
+    
     # Configure logging
-    log_level = logging.DEBUG if args.verbose else logging.INFO
     logger = setup_logging(
-        log_dir=args.log_dir if args.log_dir else None,
-        log_level=log_level,
-        enable_file_logging=args.log,
-        enable_console_logging=True
+        log_dir=config.log_dir,
+        log_level=getattr(logging, config.log_level.upper()),
+        enable_file_logging=config.enable_file_logging,
+        enable_console_logging=config.enable_console_logging
     )
     
     try:
         # Create and start the client
         async with SUDPClient(
-            udp_host=args.udp_host,
-            udp_port=args.udp_port,
-            server_host=args.server_host,
-            server_port=args.server_port,
-            buffer_size=args.buffer_size
+            udp_host=config.udp_host,
+            udp_port=config.udp_port,
+            server_host=config.server_host,
+            server_port=config.server_port,
+            buffer_size=config.buffer_size
         ) as client:
             # Wait for shutdown signal
             logger.info(
-                f"SUDP client running. Use nc -u {args.udp_host} {args.udp_port} "
+                f"SUDP client running. Use nc -u {config.udp_host} {config.udp_port} "
                 "to connect"
             )
             
