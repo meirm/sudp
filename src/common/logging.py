@@ -48,7 +48,9 @@ def setup_logging(
     log_dir: Union[str, Path] = DEFAULT_LOG_DIR,
     log_level: int = DEFAULT_LOG_LEVEL,
     rotation_when: str = 'midnight',
-    backup_count: int = 7
+    backup_count: int = 7,
+    enable_file_logging: bool = False,
+    enable_console_logging: bool = True
 ) -> logging.Logger:
     """Set up the logging infrastructure.
     
@@ -57,13 +59,12 @@ def setup_logging(
         log_level: Logging level (default: INFO)
         rotation_when: When to rotate logs ('midnight', 'h', 'w0', etc.)
         backup_count: Number of backup files to keep
+        enable_file_logging: Whether to enable logging to files
+        enable_console_logging: Whether to enable console logging
     
     Returns:
         Logger: Configured logger instance
     """
-    log_dir = Path(log_dir)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    
     # Main application logger
     logger = logging.getLogger('sudp')
     logger.setLevel(log_level)
@@ -72,46 +73,52 @@ def setup_logging(
     # Clear any existing handlers
     logger.handlers.clear()
     
-    # Console handler with colored output
-    console_handler = logging.StreamHandler()
-    console_format = '\033[1;36m%(asctime)s\033[0m - \033[1;32m%(name)s\033[0m - \033[1;34m%(levelname)s\033[0m - %(message)s'
-    console_handler.setFormatter(logging.Formatter(console_format))
-    console_handler.setLevel(logging.DEBUG)  # Show all logs in console
-    logger.addHandler(console_handler)
+    if enable_console_logging:
+        # Console handler with colored output
+        console_handler = logging.StreamHandler()
+        console_format = '\033[1;36m%(asctime)s\033[0m - \033[1;32m%(name)s\033[0m - \033[1;34m%(levelname)s\033[0m - %(message)s'
+        console_handler.setFormatter(logging.Formatter(console_format))
+        console_handler.setLevel(logging.DEBUG if log_level == logging.DEBUG else logging.INFO)
+        logger.addHandler(console_handler)
     
-    # File handler with rotation
-    main_log = log_dir / 'sudp.log'
-    file_handler = logging.handlers.TimedRotatingFileHandler(
-        main_log,
-        when=rotation_when,
-        backupCount=backup_count
-    )
-    file_handler.setFormatter(logging.Formatter(DEFAULT_LOG_FORMAT))
-    file_handler.setLevel(log_level)
-    logger.addHandler(file_handler)
-    
-    # Performance logger setup
-    perf_logger = logging.getLogger('sudp.performance')
-    perf_logger.setLevel(logging.DEBUG)
-    perf_logger.propagate = False  # Prevent double logging
-    perf_logger.handlers.clear()
-    
-    # Performance console handler
-    perf_console = logging.StreamHandler()
-    perf_console.setFormatter(logging.Formatter('\033[1;35mPERF\033[0m - %(message)s'))
-    perf_console.setLevel(logging.DEBUG)
-    perf_logger.addHandler(perf_console)
-    
-    # Performance file handler
-    perf_log = log_dir / 'performance.log'
-    perf_file = logging.handlers.TimedRotatingFileHandler(
-        perf_log,
-        when=rotation_when,
-        backupCount=backup_count
-    )
-    perf_file.setFormatter(logging.Formatter(PERFORMANCE_LOG_FORMAT))
-    perf_file.setLevel(logging.DEBUG)
-    perf_logger.addHandler(perf_file)
+    if enable_file_logging:
+        log_dir = Path(log_dir)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # File handler with rotation
+        main_log = log_dir / 'sudp.log'
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            main_log,
+            when=rotation_when,
+            backupCount=backup_count
+        )
+        file_handler.setFormatter(logging.Formatter(DEFAULT_LOG_FORMAT))
+        file_handler.setLevel(log_level)
+        logger.addHandler(file_handler)
+        
+        # Performance logger setup
+        perf_logger = logging.getLogger('sudp.performance')
+        perf_logger.setLevel(logging.DEBUG)
+        perf_logger.propagate = False  # Prevent double logging
+        perf_logger.handlers.clear()
+        
+        if enable_console_logging:
+            # Performance console handler
+            perf_console = logging.StreamHandler()
+            perf_console.setFormatter(logging.Formatter('\033[1;35mPERF\033[0m - %(message)s'))
+            perf_console.setLevel(logging.DEBUG if log_level == logging.DEBUG else logging.INFO)
+            perf_logger.addHandler(perf_console)
+        
+        # Performance file handler
+        perf_log = log_dir / 'performance.log'
+        perf_file = logging.handlers.TimedRotatingFileHandler(
+            perf_log,
+            when=rotation_when,
+            backupCount=backup_count
+        )
+        perf_file.setFormatter(logging.Formatter(PERFORMANCE_LOG_FORMAT))
+        perf_file.setLevel(log_level)
+        perf_logger.addHandler(perf_file)
     
     return logger
 

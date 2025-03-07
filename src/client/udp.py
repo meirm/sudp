@@ -15,7 +15,8 @@ from pathlib import Path
 from ..common.socket import UDPSocket
 from ..common.logging import setup_logging, log_performance, log_error, PerformanceMetrics
 
-logger = setup_logging()
+# Set up logging with only console output by default
+logger = setup_logging(enable_file_logging=False)
 
 class UDPClient:
     """High-level UDP client implementation."""
