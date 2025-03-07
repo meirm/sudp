@@ -86,12 +86,12 @@ def merge_config(yaml_config: Dict[str, Any], args_dict: Dict[str, Any]) -> Dict
             
     return config
 
-def create_server_config(yaml_path: Optional[str], args: Any) -> ServerConfig:
+def create_server_config(yaml_path: Optional[str], args: Optional[Any] = None) -> ServerConfig:
     """Create server configuration from YAML and command line args.
     
     Args:
-        yaml_path: Path to YAML config file
-        args: Parsed command line arguments
+        yaml_path: Path to YAML configuration file
+        args: Command line arguments (optional)
         
     Returns:
         ServerConfig instance
@@ -99,14 +99,13 @@ def create_server_config(yaml_path: Optional[str], args: Any) -> ServerConfig:
     # Load YAML config
     yaml_config = load_yaml_config(yaml_path)
     
-    # Convert args to dict, excluding config_file
-    args_dict = {k: v for k, v in vars(args).items() 
-                if k != 'config_file' and v is not None}
+    # Convert args to dict if provided
+    args_dict = vars(args) if args else {}
     
     # Merge configs
     config = merge_config(yaml_config, args_dict)
     
-    # Create ServerConfig with merged values
+    # Create ServerConfig instance
     return ServerConfig(**config)
 
 def create_client_config(yaml_path: Optional[str], args: Any) -> ClientConfig:

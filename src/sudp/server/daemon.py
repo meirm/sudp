@@ -32,33 +32,29 @@ class ServerDaemon(Daemon):
             pid_dir: Directory for PID file
             work_dir: Working directory
         """
+        # Use user-local directories by default
+        home = Path.home()
+        default_pid_dir = home / '.local/var/sudp'
+        default_work_dir = home
+        default_config = home / '.config/sudp/server.yaml'
+        
         super().__init__(
             name="sudpd",
-            pid_dir=pid_dir or "/var/run/sudp",
-            work_dir=work_dir or "/"
+            pid_dir=pid_dir or str(default_pid_dir),
+            work_dir=work_dir or str(default_work_dir)
         )
         
-        self.config_file = config_file
+        self.config_file = config_file or str(default_config)
         self.server: Optional[TCPServer] = None
-        
-        # Parse command line args for config
-        parser = argparse.ArgumentParser(description="SUDP Server Daemon")
-        parser.add_argument("--config-file", type=str,
-                          help="Path to YAML configuration file")
-        self.args = parser.parse_args()
-        
-        # Config file precedence: constructor > CLI > default
-        if not self.config_file:
-            self.config_file = self.args.config_file
     
     async def run(self) -> None:
         """Run the server daemon."""
         # Create configuration
-        config = create_server_config(self.config_file, self.args)
+        config = create_server_config(self.config_file)
         
         # Configure logging
         logger = setup_logging(
-            log_dir=config.log_dir,
+            log_dir=config.log_dir or str(Path.home() / '.local/var/log/sudp'),
             log_level=getattr(logging, config.log_level.upper()),
             enable_file_logging=config.enable_file_logging,
             enable_console_logging=config.enable_console_logging
@@ -92,7 +88,7 @@ class ServerDaemon(Daemon):
         logger.info("Reloading configuration...")
         try:
             # Create new configuration
-            config = create_server_config(self.config_file, self.args)
+            config = create_server_config(self.config_file)
             
             # Stop current server
             await self.server.stop()
@@ -117,24 +113,42 @@ class ServerDaemon(Daemon):
         super().cleanup()
 
 def main() -> None:
-    """Run the server daemon."""
-    daemon = ServerDaemon()
+    """Main entry point for the server daemon."""
+    parser = argparse.ArgumentParser(description="SUDP server daemon")
+    parser.add_argument("command", choices=["start", "stop", "restart", "status"],
+                       help="Daemon command (start/stop/restart/status)")
+    parser.add_argument("--config-file", help="Path to config file")
+    parser.add_argument("--pid-dir", help="Directory for PID file")
+    parser.add_argument("--work-dir", help="Working directory")
+    parser.add_argument("--foreground", action="store_true",
+                       help="Run in foreground (no daemonization)")
     
-    if len(sys.argv) == 2:
-        if sys.argv[1] == "start":
-            daemon.start()
-        elif sys.argv[1] == "stop":
-            daemon.stop()
-        elif sys.argv[1] == "restart":
-            daemon.restart()
-        elif sys.argv[1] == "status":
-            daemon.status()
+    args = parser.parse_args()
+    
+    daemon = ServerDaemon(
+        config_file=args.config_file,
+        pid_dir=args.pid_dir,
+        work_dir=args.work_dir
+    )
+    
+    if args.command == "start":
+        if args.foreground:
+            # Run in foreground
+            daemon.handle_signals()
+            with daemon.pid_file_lock():
+                try:
+                    asyncio.run(daemon.run())
+                except Exception as e:
+                    logger.error(f"Daemon failed: {e}")
+                    sys.exit(1)
         else:
-            print("Usage: sudpd {start|stop|restart|status}")
-            sys.exit(1)
-    else:
-        print("Usage: sudpd {start|stop|restart|status}")
-        sys.exit(1)
+            daemon.start()
+    elif args.command == "stop":
+        daemon.stop()
+    elif args.command == "restart":
+        daemon.restart()
+    elif args.command == "status":
+        daemon.status()
 
 if __name__ == "__main__":
     main() 

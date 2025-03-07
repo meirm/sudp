@@ -14,6 +14,7 @@ import atexit
 import signal
 import asyncio
 import logging
+import time
 from pathlib import Path
 from typing import Optional, Set, Callable, Coroutine, Any
 from contextlib import contextmanager
@@ -37,28 +38,32 @@ class Daemon:
         name: str,
         pid_dir: Optional[str] = None,
         umask: int = 0o022,
-        work_dir: str = "/"
+        work_dir: Optional[str] = None
     ) -> None:
         """Initialize the daemon.
         
         Args:
             name: Daemon name (used for PID file)
-            pid_dir: Directory for PID file (default: /var/run or /tmp)
+            pid_dir: Directory for PID file
             umask: File mode creation mask
             work_dir: Working directory for daemon
         """
         self.name = name
         self.umask = umask
-        self.work_dir = work_dir
+        
+        # Set up working directory
+        if work_dir:
+            self.work_dir = Path(work_dir)
+        else:
+            self.work_dir = Path.home()
         
         # Set up PID file path
         if pid_dir:
             self.pid_dir = Path(pid_dir)
         else:
-            # Try standard locations
-            self.pid_dir = Path("/var/run")
-            if not os.access(self.pid_dir, os.W_OK):
-                self.pid_dir = Path("/tmp")
+            # Use user-local directory
+            self.pid_dir = Path.home() / '.local/var/sudp'
+            self.pid_dir.mkdir(parents=True, exist_ok=True)
         
         self.pid_file = self.pid_dir / f"{name}.pid"
         self._pid: Optional[int] = None
@@ -116,29 +121,10 @@ class Daemon:
                 pass
     
     def daemonize(self) -> None:
-        """Daemonize the current process using double fork."""
-        # First fork
-        try:
-            pid = os.fork()
-            if pid > 0:
-                sys.exit(0)  # Exit first parent
-        except OSError as e:
-            logger.error(f"First fork failed: {e}")
-            sys.exit(1)
-        
-        # Decouple from parent environment
-        os.chdir(self.work_dir)
+        """Daemonize the current process."""
+        # Change working directory
+        os.chdir(str(self.work_dir))
         os.umask(self.umask)
-        os.setsid()
-        
-        # Second fork
-        try:
-            pid = os.fork()
-            if pid > 0:
-                sys.exit(0)  # Exit second parent
-        except OSError as e:
-            logger.error(f"Second fork failed: {e}")
-            sys.exit(1)
         
         # Close all file descriptors
         for fd in range(0, 1024):
@@ -255,7 +241,7 @@ class Daemon:
             for _ in range(30):  # 3 seconds timeout
                 try:
                     os.kill(pid, 0)
-                    asyncio.sleep(0.1)
+                    time.sleep(0.1)
                 except ProcessLookupError:
                     break
             else:
@@ -284,5 +270,9 @@ class Daemon:
             print(f"{self.name} is running (PID: {pid})")
         except ProcessLookupError:
             print(f"{self.name} is not running (stale PID file)")
+            try:
+                self.pid_file.unlink()
+            except FileNotFoundError:
+                pass
         except PermissionError:
             print(f"{self.name} is running (PID: {pid}), but you don't have permission to check") 

@@ -1,12 +1,12 @@
 # SUDP Server Configuration
 
 # Server settings
-host: "127.0.0.1"
-port: 1122
+host: 127.0.0.1
+port: 11223
 max_clients: 100
 
 # Logging settings
-log_dir: "~/.sudp/logs"
-log_level: "INFO"
+log_dir: ~/.local/var/log/sudp
+log_level: INFO
 enable_file_logging: true
 enable_console_logging: true 
