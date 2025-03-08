@@ -2,18 +2,26 @@
 
 A Python-based solution for tunneling UDP traffic through WebSocket connections, providing secure and reliable UDP communication across networks.
 
-## Features (Planned)
+## Features
 
-- UDP packet tunneling over WebSocket
-- Support for both daemon and interactive modes
-- Multi-instance capability
-- Secure communication via Nginx reverse proxy
-- Comprehensive logging and monitoring
-- Configuration management per instance
+### Implemented (v0.8.0)
+- Core UDP Packet Handling with serialization/deserialization
+- UDP Socket Management with async operations
+- Basic TCP Server Implementation with client tracking
+- Multi-instance Support with instance isolation
+- Error Recovery with connection recovery and packet retransmission
+- Comprehensive Testing Infrastructure
+
+### Planned
+- WebSocket Integration (v0.7.0)
+- Advanced Configuration Management
+- Secure communication via reverse proxy
+- Performance Optimization
+- Cross-platform support
 
 ## Development Status
 
-Currently in early development (v0.1.0). See [ROADMAP.md](ROADMAP.md) for detailed development plans and progress.
+Currently in active development (v0.8.0). See [ROADMAP.md](ROADMAP.md) for detailed development plans and progress.
 
 ## Requirements
 
@@ -36,7 +44,7 @@ Currently in early development (v0.1.0). See [ROADMAP.md](ROADMAP.md) for detail
 
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -e .
    ```
 
 4. Run tests:
@@ -44,24 +52,57 @@ Currently in early development (v0.1.0). See [ROADMAP.md](ROADMAP.md) for detail
    pytest
    ```
 
+5. Try the echo server example:
+   ```bash
+   python examples/echo_server.py
+   ```
+
+6. Test with netcat:
+   ```bash
+   nc -u 127.0.0.1 5005
+   ```
+
+7. Server daemon commands:
+   ```bash
+   # Server daemon (default instance)
+   sudpd start
+   sudpd status
+   sudpd stop
+
+   # Server daemon (named instance)
+   sudpd start --instance test1 --port 11224
+   sudpd status --instance test1
+   sudpd stop --instance test1
+   
+   # List all instances
+   sudpd list
+   ```
+
 ## Project Structure
 
 ```
 sudp/
 ├── src/
-│   ├── client/       # Client-side implementation
-│   ├── server/       # Server-side implementation
-│   ├── common/       # Shared utilities and configurations
-│   └── tests/        # Test suite
-├── docs/            # Documentation
-├── examples/        # Example configurations and usage
-├── requirements.txt # Project dependencies
-└── README.md       # This file
+│   ├── sudp/          # Main package
+│   ├── client/        # Client-side implementation
+│   ├── tests/         # Test suite
+├── examples/         # Example configurations and usage
+├── systemd/          # Systemd service files
+├── docs/             # Documentation
+├── pyproject.toml    # Project configuration
+└── README.md         # This file
 ```
+
+## Documentation
+
+- [INSTALL.md](INSTALL.md) - Detailed installation instructions
+- [USER_STORY.md](USER_STORY.md) - Operation flow and use cases
+- [DEVELOPMENT_CONTEXT.md](DEVELOPMENT_CONTEXT.md) - Development state and context
+- [ROADMAP.md](ROADMAP.md) - Development roadmap and planning
 
 ## License
 
-[License Type] - See LICENSE file for details
+MIT License - See [LICENSE.md](LICENSE.md) for details
 
 ## Contributing
 
