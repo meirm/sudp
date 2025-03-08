@@ -61,17 +61,19 @@ SUDP is a Python-based tunneling solution that enables secure and reliable trans
 - Status reporting
 - Debug mode enhancements
 
-### 0.6.0 - Nginx Integration
+### 0.6.0 - Multi-instance Support
+- Instance isolation
+- Resource management
+- Port allocation handling
+- Instance status monitoring
+
+### 0.7.0 - Nginx Integration
 - Nginx reverse proxy configuration
 - SSL termination setup
 - Basic authentication implementation
 - Proxy documentation
 
-### 0.7.0 - Multi-instance Support
-- Instance isolation
-- Resource management
-- Port allocation handling
-- Instance status monitoring
+
 
 ### 0.8.0 - Error Recovery
 - Connection recovery
@@ -80,7 +82,7 @@ SUDP is a Python-based tunneling solution that enables secure and reliable trans
 - Automatic reconnection
 
 ### 0.9.0 - Testing and Documentation
-- Unit test suite
+- (don't write/run) Unit test suite
 - Integration tests
 - Performance benchmarks
 - Comprehensive documentation

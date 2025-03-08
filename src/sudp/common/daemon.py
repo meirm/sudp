@@ -6,6 +6,7 @@ This module provides:
 - PID file handling
 - Signal handling
 - Daemon state management
+- Multi-instance support
 """
 
 import os
@@ -15,8 +16,9 @@ import signal
 import asyncio
 import logging
 import time
+import json
 from pathlib import Path
-from typing import Optional, Set, Callable, Coroutine, Any
+from typing import Optional, Set, Callable, Coroutine, Any, Dict, List
 from contextlib import contextmanager
 
 from .logging import setup_logging
@@ -31,11 +33,13 @@ class Daemon:
     - PID file management
     - Signal handling (SIGTERM, SIGINT, SIGHUP)
     - Graceful shutdown support
+    - Multi-instance support
     """
     
     def __init__(
         self,
         name: str,
+        instance_name: str = "default",
         pid_dir: Optional[str] = None,
         umask: int = 0o022,
         work_dir: Optional[str] = None
@@ -44,11 +48,13 @@ class Daemon:
         
         Args:
             name: Daemon name (used for PID file)
+            instance_name: Instance name for multi-instance support
             pid_dir: Directory for PID file
             umask: File mode creation mask
             work_dir: Working directory for daemon
         """
         self.name = name
+        self.instance_name = instance_name
         self.umask = umask
         
         # Set up working directory
@@ -61,12 +67,20 @@ class Daemon:
         if pid_dir:
             self.pid_dir = Path(pid_dir)
         else:
-            # Use user-local directory
-            self.pid_dir = Path.home() / '.local/var/sudp'
+            # Use user-local directory with instance subdirectory
+            self.pid_dir = Path.home() / '.local/var/sudp' / instance_name
             self.pid_dir.mkdir(parents=True, exist_ok=True)
         
-        self.pid_file = self.pid_dir / f"{name}.pid"
+        # Create instance-specific PID file name
+        if instance_name == "default":
+            self.pid_file = self.pid_dir / f"{name}.pid"
+        else:
+            self.pid_file = self.pid_dir / f"{name}_{instance_name}.pid"
+            
         self._pid: Optional[int] = None
+        
+        # Instance metadata file
+        self.metadata_file = self.pid_dir / "metadata.json"
         
         # Signal handling
         self._shutdown_event = asyncio.Event()
@@ -89,8 +103,17 @@ class Daemon:
             os.kill(pid, 0)
             return True
             
-        except (ValueError, ProcessLookupError, PermissionError):
+        except (ValueError, ProcessLookupError):
+            # Clean up stale PID file
+            try:
+                self.pid_file.unlink()
+            except FileNotFoundError:
+                pass
             return False
+        except PermissionError:
+            # Process exists but we don't have permission to send signals
+            # This still means the process is running
+            return True
     
     def get_pid(self) -> Optional[int]:
         """Get daemon PID from PID file."""
@@ -102,6 +125,42 @@ class Daemon:
                 return int(f.read().strip())
         except (ValueError, IOError):
             return None
+    
+    def save_metadata(self, metadata: Dict[str, Any]) -> None:
+        """Save instance metadata to file.
+        
+        Args:
+            metadata: Dictionary of metadata to save
+        """
+        # Add standard metadata
+        metadata.update({
+            "instance_name": self.instance_name,
+            "pid": os.getpid(),
+            "start_time": time.time(),
+            "name": self.name
+        })
+        
+        try:
+            with open(self.metadata_file, "w") as f:
+                json.dump(metadata, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save metadata: {e}")
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        """Get instance metadata from file.
+        
+        Returns:
+            Dictionary of metadata or empty dict if file doesn't exist
+        """
+        if not self.metadata_file.exists():
+            return {}
+            
+        try:
+            with open(self.metadata_file) as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read metadata: {e}")
+            return {}
     
     @contextmanager
     def pid_file_lock(self):
@@ -117,6 +176,12 @@ class Daemon:
             # Remove PID file
             try:
                 self.pid_file.unlink()
+            except FileNotFoundError:
+                pass
+            
+            # Remove metadata file
+            try:
+                self.metadata_file.unlink()
             except FileNotFoundError:
                 pass
     
@@ -209,7 +274,7 @@ class Daemon:
     def start(self) -> None:
         """Start the daemon process."""
         if self.is_running:
-            logger.error(f"{self.name} is already running")
+            logger.error(f"{self.name} instance '{self.instance_name}' is already running")
             sys.exit(1)
         
         # Daemonize process
@@ -230,7 +295,7 @@ class Daemon:
         """Stop the daemon process."""
         pid = self.get_pid()
         if not pid:
-            logger.error(f"{self.name} is not running")
+            logger.error(f"{self.name} instance '{self.instance_name}' is not running")
             return
         
         try:
@@ -248,31 +313,164 @@ class Daemon:
                 # Force kill if still running
                 os.kill(pid, signal.SIGKILL)
                 
+            logger.info(f"{self.name} instance '{self.instance_name}' stopped")
+            
         except ProcessLookupError:
-            logger.info(f"{self.name} is not running")
-        except PermissionError:
-            logger.error(f"Permission denied to stop {self.name}")
-    
-    def restart(self) -> None:
-        """Restart the daemon process."""
-        self.stop()
-        self.start()
-    
-    def status(self) -> None:
-        """Check daemon status."""
-        pid = self.get_pid()
-        if not pid:
-            print(f"{self.name} is not running")
-            return
-        
-        try:
-            os.kill(pid, 0)
-            print(f"{self.name} is running (PID: {pid})")
-        except ProcessLookupError:
-            print(f"{self.name} is not running (stale PID file)")
+            # Process already gone, just remove PID file
             try:
                 self.pid_file.unlink()
             except FileNotFoundError:
                 pass
+            logger.info(f"{self.name} instance '{self.instance_name}' was not running (stale PID file)")
+            
         except PermissionError:
-            print(f"{self.name} is running (PID: {pid}), but you don't have permission to check") 
+            logger.error(f"No permission to stop {self.name} instance '{self.instance_name}' (PID: {pid})")
+    
+    def restart(self) -> None:
+        """Restart the daemon process."""
+        self.stop()
+        time.sleep(1)  # Give it a moment to fully stop
+        self.start()
+    
+    def status(self) -> None:
+        """Check and print the daemon status."""
+        pid = self.get_pid()
+        
+        if not pid:
+            print(f"{self.name} instance '{self.instance_name}' is not running")
+            return
+            
+        try:
+            # Check if process exists
+            os.kill(pid, 0)
+            
+            # Get metadata if available
+            metadata = self.get_metadata()
+            if metadata:
+                # Format start time
+                start_time = metadata.get("start_time", 0)
+                if start_time:
+                    uptime = time.time() - start_time
+                    hours, remainder = divmod(uptime, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    uptime_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+                    print(f"{self.name} instance '{self.instance_name}' is running (PID: {pid}, uptime: {uptime_str})")
+                else:
+                    print(f"{self.name} instance '{self.instance_name}' is running (PID: {pid})")
+                
+                # Print additional metadata if available
+                for key, value in metadata.items():
+                    if key not in ("instance_name", "pid", "start_time", "name"):
+                        print(f"  {key}: {value}")
+            else:
+                print(f"{self.name} instance '{self.instance_name}' is running (PID: {pid})")
+                
+        except ProcessLookupError:
+            # Process not running, clean up PID file
+            try:
+                self.pid_file.unlink()
+            except FileNotFoundError:
+                pass
+            print(f"{self.name} instance '{self.instance_name}' is not running (stale PID file)")
+            
+        except PermissionError:
+            print(f"{self.name} instance '{self.instance_name}' is running (PID: {pid}), but you don't have permission to check")
+
+    @classmethod
+    def list_instances(cls, name: str, base_dir: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List all instances of this daemon.
+        
+        Args:
+            name: Daemon name
+            base_dir: Base directory for PID files
+            
+        Returns:
+            List of instance information dictionaries
+        """
+        instances = []
+        
+        # Determine base directory
+        if base_dir:
+            pid_base_dir = Path(base_dir)
+        else:
+            pid_base_dir = Path.home() / '.local/var/sudp'
+            
+        if not pid_base_dir.exists():
+            return instances
+            
+        # Check default instance
+        default_pid_file = pid_base_dir / "default" / f"{name}.pid"
+        if default_pid_file.exists():
+            try:
+                with open(default_pid_file) as f:
+                    pid = int(f.read().strip())
+                    
+                # Check if process exists
+                try:
+                    os.kill(pid, 0)
+                    running = True
+                except (ProcessLookupError, PermissionError):
+                    running = False
+                    
+                # Get metadata if available
+                metadata_file = default_pid_file.parent / "metadata.json"
+                metadata = {}
+                if metadata_file.exists():
+                    try:
+                        with open(metadata_file) as f:
+                            metadata = json.load(f)
+                    except Exception:
+                        pass
+                        
+                instances.append({
+                    "instance_name": "default",
+                    "pid": pid,
+                    "running": running,
+                    "metadata": metadata
+                })
+            except (ValueError, IOError):
+                pass
+                
+        # Check instance directories
+        for instance_dir in pid_base_dir.iterdir():
+            if not instance_dir.is_dir() or instance_dir.name == "default":
+                continue
+                
+            # Check for PID file
+            pid_file = instance_dir / f"{name}_{instance_dir.name}.pid"
+            if not pid_file.exists():
+                pid_file = instance_dir / f"{name}.pid"
+                if not pid_file.exists():
+                    continue
+                    
+            try:
+                with open(pid_file) as f:
+                    pid = int(f.read().strip())
+                    
+                # Check if process exists
+                try:
+                    os.kill(pid, 0)
+                    running = True
+                except (ProcessLookupError, PermissionError):
+                    running = False
+                    
+                # Get metadata if available
+                metadata_file = pid_file.parent / "metadata.json"
+                metadata = {}
+                if metadata_file.exists():
+                    try:
+                        with open(metadata_file) as f:
+                            metadata = json.load(f)
+                    except Exception:
+                        pass
+                        
+                instances.append({
+                    "instance_name": instance_dir.name,
+                    "pid": pid,
+                    "running": running,
+                    "metadata": metadata
+                })
+            except (ValueError, IOError):
+                pass
+                
+        return instances 
